@@ -31,16 +31,11 @@ function julian2jalali(julian_day)
     return year, month, day
 end
 
-function isjalalileap(year)
-    return mod(682(mod(year - (year > 0 ? 474 : 473), 2820) + 474 + 38), 2816) < 682
-end
+isjalalileap(year) = mod(682(mod(year - (year > 0 ? 474 : 473), 2820) + 474 + 38), 2816) < 682
 
-function getdays_injalaliyear(year)
-    return isjalalileap(year) ? 366 : 365
-end
+getdays_injalaliyear(year) = isjalalileap(year) ? 366 : 365
 
-function getdays_injalalimonth(year, month)
-    return 1 <= month <= 6 ? 31 :
+getdays_injalalimonth(year, month) =
+    1 <= month <= 6 ? 31 :
     7 <= month < 12 ? 30 :
     isjalalileap(year) ? 30 : 29
-end
