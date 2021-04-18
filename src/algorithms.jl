@@ -1,6 +1,8 @@
 export isjalalileap,
     jalali2julian,
-    julian2jalali
+    julian2jalali,
+    getdays_injalalimonth,
+    getdays_injalaliyear
 
 function jalali2julian(year, month, day)
     juyear = year >= 0 ? 474 : 473
@@ -31,4 +33,14 @@ end
 
 function isjalalileap(year)
     return mod(682(mod(year - (year > 0 ? 474 : 473), 2820) + 474 + 38), 2816) < 682
+end
+
+function getdays_injalaliyear(year)
+    return isjalalileap(year) ? 366 : 365
+end
+
+function getdays_injalalimonth(year, month)
+    return 1 <= month <= 6 ? 31 :
+    7 <= month < 12 ? 30 :
+    isjalalileap(year) ? 30 : 29
 end
