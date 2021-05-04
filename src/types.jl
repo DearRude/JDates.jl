@@ -3,26 +3,36 @@
 # JalCalendar provides interpretation rules for UTInstants to civil date and time parts
 struct JalCalendar <: Calendar end
 
-"""
-    JDateTime
 
-`JDateTime` wraps a `UTInstant{Millisecond}` and interprets it according to the Jalali calendar.
-"""
-struct JDateTime <: AbstractDateTime
-    instant::UTInstant{Millisecond}
-    JDateTime(instant::UTInstant{Millisecond}) = new(instant)
+for T in (:JYear, :JQuarter, :JMonth, :JWeek)
+    @eval struct $T <: DatePeriod
+        value::Int64
+        $T(v::Number) = new(v)
+    end
 end
 
 """
     JDate
 
-`JDate` wraps a `UTInstant{Day}` and interprets it according to the Jalali calendar.
+`JDate` wraps `JYear`, `JMonth`, `Day` and interprets it according to the Jalali calendar.
 """
 struct JDate <: TimeType
-    instant::UTInstant{Day}
-    JDate(instant::UTInstant{Day}) = new(instant)
+    year::Int64
+    month::Int64
+    day::Int64
+    JDate(y::JYear, m::JMonth, d::Day) = new(y.value, m.value, d.value)
 end
 
+"""
+    JDateTime
+
+`JDateTime` wraps a `UTInstant{Millisecond}`, `JDate` and interprets it according to the Jalali calendar.
+"""
+struct JDateTime <: AbstractDateTime
+    date::JDate
+    time::Time
+    JDateTime(date::JDate, time::Time) = new(date, time)
+end
 
 ### CONSTRUCTORS ###
 # Core constructors
@@ -36,8 +46,9 @@ function JDateTime(y::Int64, m::Int64=1, d::Int64=1,
     err = validargs(JDateTime, y, m, d, h, mi, s, ms, ampm)
     err === nothing || throw(err)
     h = adjusthour(h, ampm)
-    rata = ms + 1000 * (s + 60mi + 3600h + 86400 * totaldays(y, m, d))
-    return JDateTime(UTM(rata))
+    time = 1000(ms + 1000(s + 60mi + 3600h)) |> Nanosecond |> Time
+    date = JDate(y, m, d)
+    return JDateTime(date, time)
 end
 
 function validargs(::Type{JDateTime}, y::Int64, m::Int64, d::Int64,
@@ -65,7 +76,7 @@ Construct a `JDate` type by parts. Arguments must be convertible to [`Int64`](@r
 function JDate(y::Int64, m::Int64=1, d::Int64=1)
     err = validargs(JDate, y, m, d)
     err === nothing || throw(err)
-    return JDate(UTD(totaldays(y, m, d)))
+    return JDate(JYear(y), JMonth(m), Day(d))
 end
 
 function validargs(::Type{JDate}, y::Int64, m::Int64, d::Int64)
@@ -76,14 +87,12 @@ function validargs(::Type{JDate}, y::Int64, m::Int64, d::Int64)
 end
 
 # Convenience constructors from Periods
-function JDateTime(y::Year, m::Month=Month(1), d::Day=Day(1),
+function JDateTime(y::JYear, m::JMonth=JMonth(1), d::Day=Day(1),
                   h::Hour=Hour(0), mi::Minute=Minute(0),
                   s::Second=Second(0), ms::Millisecond=Millisecond(0))
-    return JDateTime(value(y), value(m), value(d),
-                    value(h), value(mi), value(s), value(ms))
+    JDateTime(y.value, m.value, d.value,
+              h.value, mi.value, s.value, ms.value)
 end
-
-JDate(y::Year, m::Month=Month(1), d::Day=Day(1)) = JDate(value(y), value(m), value(d))
 
 # To allow any order/combination of Periods
 
@@ -94,11 +103,11 @@ Construct a `JDateTime` type by `Period` type parts. Arguments may be in any ord
 parts not provided will default to the value of `Dates.default(period)`.
 """
 function JDateTime(period::Period, periods::Period...)
-    y = Year(1); m = Month(1); d = Day(1)
+    y = JYear(1); m = JMonth(1); d = Day(1)
     h = Hour(0); mi = Minute(0); s = Second(0); ms = Millisecond(0)
     for p in (period, periods...)
-        isa(p, Year) && (y = p::Year)
-        isa(p, Month) && (m = p::Month)
+        isa(p, JYear) && (y = p::JYear)
+        isa(p, JMonth) && (m = p::JMonth)
         isa(p, Day) && (d = p::Day)
         isa(p, Hour) && (h = p::Hour)
         isa(p, Minute) && (mi = p::Minute)
@@ -115,10 +124,10 @@ Construct a `JDate` type by `Period` type parts. Arguments may be in any order. 
 not provided will default to the value of `JDates.default(period)`.
 """
 function JDate(period::Period, periods::Period...)
-    y = Year(1); m = Month(1); d = Day(1)
+    y = JYear(1); m = JMonth(1); d = Day(1)
     for p in (period, periods...)
-        isa(p, Year) && (y = p::Year)
-        isa(p, Month) && (m = p::Month)
+        isa(p, JYear) && (y = p::JYear)
+        isa(p, JMonth) && (m = p::JMonth)
         isa(p, Day) && (d = p::Day)
     end
     return JDate(y, m, d)
@@ -126,17 +135,14 @@ end
 
 # To be able convert from ISO Calendar to Jalali Calendar
 
+# TODO: Replce calling attributes with something else
 """
     JDateTime(dt::DateTime) -> JDateTime
 
 Construct a `JDateTime` type by `DateTime` type. Arguments may be in any order. JDateTime
 will convert Dates from ISO (Gregorian) calendar to Jalali calendar.
 """
-function JDateTime(dt:DateTime)
-    y = Year(dt); m = Month(dt); d = Day(dt)
-    h = Hour(dt); mi = Minute(dt); s = Second(dt); ms = Millisecond(dt)
-    return JDateTime(JDate(Date(y, m, s)), Time(h, mi, s, ms))
-end
+JDateTime(dt::DateTime) = JDateTime(JDate(Date(dt)), Time(dt))
 
 """
     JDate(d::Date) -> JDate
@@ -145,10 +151,28 @@ Construct a `JDate` type by `Date` type. Arguments may be in any order. JDate
 will convert Dates from ISO (Gregorian) calendar to Jalali calendar.
 """
 function JDate(d::Date)
-    gregor::DateTime = DateTime(year(d), month(d), day(y), 0, 0, 0)
-    y, m, d = datetime2julian(gregor) |> julian2jalali
+    y, m, d = d |> DateTime |> datetime2julian |> julian2jalali
     return JDate(y, m, d)
 end
+
+# To be able convert from Jalali Calendar to ISO Calendar
+
+# TODO: Replce calling attributes with something else
+"""
+    DateTime(dt::JDateTime) -> DateTime
+
+Construct a `DateTime` type by `JDateTime` type. Arguments may be in any order. DateTime
+will convert Dates from Jalali calendar to ISO (Gregorian) calendar.
+"""
+DateTime(dt::JDateTime) = DateTime(Date(JDate(dt)), Time(dt))
+
+"""
+    Date(d::JDate) -> Date
+
+Construct a `Date` type by `JDate` type. Arguments may be in any order. Date
+will convert JDates from Jalali calendar to ISO (Gregorian) calendar.
+"""
+Date(d::JDate) = jalali2julian(yearmonthday(d)...) |> julian2datetime |> Date
 
 # Convenience constructor for JDateTime from JDate and Time
 """
@@ -172,11 +196,6 @@ julia> JDateTime(d, t)
 1400-01-01T08:15:42
 ```
 """
-function JDateTime(dt::JDate, t::Time)
-    (microsecond(t) > 0 || nanosecond(t) > 0) && throw(InexactError(:JDateTime, JDateTime, t))
-    y, m, d = yearmonthday(dt)
-    return JDateTime(y, m, d, hour(t), minute(t), second(t), millisecond(t))
-end
 
 # Fallback constructors
 JDateTime(y, m=1, d=1, h=0, mi=0, s=0, ms=0, ampm::AMPM=TWENTYFOURHOUR) = JDateTime(Int64(y), Int64(m), Int64(d), Int64(h), Int64(mi), Int64(s), Int64(ms), ampm)
@@ -215,8 +234,8 @@ Base.eps(::Type{Time}) = Nanosecond(1)
 Base.eps(::T) where T <: TimeType = eps(T)::Period
 
 # zero returns dt::T - dt::T
-Base.zero(::Type{JDateTime}) = Millisecond(0)
-Base.zero(::Type{JDate}) = Day(0)
+Base.zero(::Type{JDateTime}) = Year(475)
+Base.zero(::Type{JDate}) = Year(475)
 Base.zero(::Type{Time}) = Nanosecond(0)
 Base.zero(::T) where T <: TimeType = zero(T)::Period
 
@@ -225,14 +244,19 @@ Base.typemax(::Union{JDateTime, Type{JDateTime}}) = JDateTime(3178, 12, 31, 23, 
 Base.typemin(::Union{JDateTime, Type{JDateTime}}) = JDateTime(475, 1, 1, 0, 0, 0)
 Base.typemax(::Union{JDate, Type{JDate}}) = JDate(3178, 12, 31)
 Base.typemin(::Union{JDate, Type{JDate}}) = JDate(475, 1, 1)
-Base.typemax(::Union{Time, Type{Time}}) = Time(23, 59, 59, 999, 999, 999)
+Base.typemax(::Union{Time, Type{Time}}) = Time(23, 59, 59, 999)
 Base.typemin(::Union{Time, Type{Time}}) = Time(0)
 # JDate-JDateTime promotion, isless, ==
 Base.promote_rule(::Type{JDate}, x::Type{JDateTime}) = JDateTime
-Base.isless(x::T, y::T) where {T<:TimeType} = isless(value(x), value(y))
-Base.isless(x::TimeType, y::TimeType) = isless(promote(x, y)...)
-(==)(x::T, y::T) where {T<:TimeType} = (==)(value(x), value(y))
-(==)(x::TimeType, y::TimeType) = (===)(promote(x, y)...)
+Base.isless(x::JDate, y::JDate) =
+        x.year != y.year ? isless(x.year, y.year) :
+        x.month != y.month ? isless(x.month, y.month) :
+        isless(x.day, x.day)
+Base.isless(x::JDateTime, y::JDateTime) = x.date != y.date ? isless(x.time, y.time) : isless(x.date, x.date)
+Base.isless(x::JDate, y::JDateTime) = x != y.date ? isless(x, y.date) : isless(Time(0), y.time)
+Base.isless(x::JDateTime, y::JDate) = x.date != y ? isless(x.date, y) : isless(x.time, Time(0))
+(==)(x::JDate, y::JDate) = (==)(x.year, y.year) && (==)(x.month, y.month) && (==)(x.day, y.day)
+(==)(x::JDateTime, y::JDateTime) = (==)(x.date, y.date) && (==)(x.time, y.time)
 Base.min(x::AbstractTime) = x
 Base.max(x::AbstractTime) = x
 Base.minmax(x::AbstractTime) = (x, x)

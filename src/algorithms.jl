@@ -1,9 +1,3 @@
-export isjalalileap,
-    jalali2julian,
-    julian2jalali,
-    getdays_injalalimonth,
-    getdays_injalaliyear
-
 function jalali2julian(year, month, day)
     juyear = year >= 0 ? 474 : 473
     julian_year = 474 + mod(year - juyear, 2820)

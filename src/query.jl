@@ -52,9 +52,9 @@ end
 
 const ENGLISH = DateLocale(
     ["Farvardin", "Ordibehesht", "Khordad", "Tir", "Mordad", "Shahrivar",
-     "Mehr", "Aban", "Azar", "Day", "Bahman", "Esfand"],
+     "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand"],
     ["Far", "Ord", "Kho", "Tir", "Mor", "Shr",
-     "Mhr", "Aba", "Aza", "Day", "Bah", "Esf"],
+     "Mhr", "Aba", "Aza", "Dey", "Bah", "Esf"],
     ["Shanbeh", "YekShanbeh", "DoShanbeh", "SeShanbeh",
      "ChaharShanbeh", "PanjShanbeh", "Jomeh"],
     ["Sha", "Yek", "Doh", "Seh", "Cha", "Pan", "Jom"],
@@ -487,17 +487,17 @@ julia> Aza
 const Aza = 9
 
 """
-    Day
+    Dey
 
 The tenth month of the year.
 
 # Examples
 ```jldoctest
-julia> Day
+julia> Dey
 10
 ```
 """
-const Day = 10
+const Dey = 10
 
 """
     Bahman
@@ -659,3 +659,8 @@ function dayofquarter(dt::TimeType)
     (y, m, d) = yearmonthday(dt)
     return QUARTERDAYS[m] + d + (m == 12 && isleapyear(y))
 end
+
+isleapyear(y) = isjalalileap(y)
+
+daysinmonth(y, m) = getdays_injalalimonth(y, m)
+
