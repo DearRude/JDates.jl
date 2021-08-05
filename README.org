@@ -1,0 +1,24 @@
+#+TITLE:   JDates.jl 
+[[https://github.com/dearrude/JDates.jl/actions/workflows/test.yml/badge.svg]]
+[[https://img.shields.io/badge/license-GPLv3-brightgreen.svg]]
+#+AUTHOR: Ebrahim Nejati
+
+JDates is a [[https://en.wikipedia.org/wiki/Iranian_calendars][Jalali]] (Solar) implementation of calendar package that which plans to include ~Dates~ functionality as well as conversion to Gregorian calendar in Julia.
+JDates is still in early stages so it may not be stable.
+
+*** Algorithm
+JDates uses an enchanted version of Bireshk 2080 epoch algorithm (implemented in Julia) for conversion and leap year detection.
+
+* Installation
+First [[https://julialang.org/downloads/platform/][install Julia]]
+
+JDates is not yet released.
+Add it from the Git repository with the following command:
+
+#+BEGIN_SRC julia
+# Enter ']' from the REPL to enter Pkg mode.
+pkg> add https://github.com/DearRude/JDates.jl
+#+END_SRC
+
+** License
+JDates is published under GPLv3+
